@@ -57,6 +57,23 @@ const SDK = (function () {
 
     onAudio: call(function (b, cb) {
       try { if (b) b.platform.on(b.EVENT_NAME.AUDIO_STATE_CHANGED, cb); } catch (e) {}
+    }),
+
+    /* Read the platform's current audio-enabled flag (null if unknown). */
+    audioEnabled: call(function (b) {
+      if (!b || !b.platform || typeof b.platform.isAudioEnabled === 'undefined') return null;
+      return b.platform.isAudioEnabled;
+    }),
+
+    /* Cloud storage (bridge.storage). Falls back cleanly when absent. */
+    storageGet: call(function (b, key, fallback) {
+      if (!b || !b.storage || typeof b.storage.get !== 'function') return fallback;
+      try { return b.storage.get(key, fallback); } catch (e) { return fallback; }
+    }),
+
+    storageSet: call(function (b, key, value) {
+      if (!b || !b.storage || typeof b.storage.set !== 'function') return;
+      try { return b.storage.set(key, value); } catch (e) { /* noop */ }
     })
   };
 })();

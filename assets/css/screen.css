@@ -710,3 +710,33 @@ body {
 .shop-item .btn-secondary .btn-label {
   font-size: clamp(11px, 2.6vw, 15px);
 }
+
+/* ============================================================
+   DESKTOP / LANDSCAPE — centered portrait frame
+   The draw-a-line gameplay is naturally vertical, so on wide
+   screens we keep the game in a centered 9:16 frame and fill the
+   sides with a blurred, darkened version of the themed background
+   (no black bars). Portrait / mobile stays full-screen.
+   ============================================================ */
+
+@media (orientation: landscape) {
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -60px;
+    z-index: 0;
+    background: url('../screens/menu-bg.png') center / cover no-repeat;
+    filter: blur(20px) brightness(0.5) saturate(1.15);
+  }
+
+  #game-root {
+    z-index: 1;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    height: 100vh;
+    aspect-ratio: 9 / 16;
+    max-width: 100vw;
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+  }
+}
