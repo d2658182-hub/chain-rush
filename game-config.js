@@ -56,9 +56,12 @@ const GAME_CONFIG = {
     }
   },
 
-  /* ----- audio (real files) ----- */
+  /* ----- audio (real files; distinct music per screen group) ----- */
   audio: {
-    music: 'assets/audio/music.ogg',
+    music: {
+      menu: 'assets/audio/menu.ogg',
+      gameplay: 'assets/audio/gameplay.mp3'
+    },
     sounds: {
       click: 'assets/audio/click.ogg',
       collect: 'assets/audio/collect.ogg',

@@ -98,7 +98,9 @@ class LoadingScreen extends BaseScreen {
   collectAudio() {
     const config = this.game.config.audio || {};
     const list = [];
-    if (config.music) list.push(config.music);
+    const music = config.music;
+    if (typeof music === 'string') list.push(music);
+    else if (music) Object.values(music).forEach((src) => list.push(src));
     Object.values(config.sounds || {}).forEach((src) => list.push(src));
     return list;
   }

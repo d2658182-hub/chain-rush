@@ -333,6 +333,7 @@ class GameplayScreen extends BaseScreen {
     const y = top + pad + Math.random() * Math.max(20, (bottom - top - 2 * pad));
     const angle = Math.random() * Math.PI * 2;
     const sp = this.cfg.speed * (0.6 + Math.random() * 0.8);
+    const type = this.rollSpecial();
     return {
       x, y,
       vx: Math.cos(angle) * sp,
@@ -340,8 +341,8 @@ class GameplayScreen extends BaseScreen {
       rot: Math.random() * Math.PI * 2,
       vr: (Math.random() - 0.5) * 2.2,
       r,
-      type: this.rollSpecial(),
-      color: null,
+      type,
+      color: type === 'normal' ? this.randomColor() : null,
       locked: false,
       spawn: 0.35
     };

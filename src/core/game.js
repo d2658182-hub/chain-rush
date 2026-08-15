@@ -18,6 +18,7 @@ class Game {
 
   show(name, options) {
     this.screens.show(name, options);
+    this.audio.playMusicFor(name);
   }
 
   start() {

@@ -1,5 +1,7 @@
 /* Audio engine — plays REAL downloaded files (music + SFX), no synthesized tones.
-   Sound names map to paths in game.config.audio.sounds. */
+   Sound names map to paths in game.config.audio.sounds.
+   Music switches per screen group: menu/loading/shop -> menu track,
+   gameplay/pause/gameover/victory -> gameplay track. */
 
 class AudioEngine {
   constructor(game) {
@@ -34,7 +36,32 @@ class AudioEngine {
   unlock() {
     if (this.unlocked) return;
     this.unlocked = true;
-    this.startMusic();
+    this.playMusicFor(this.currentScreen());
+  }
+
+  currentScreen() {
+    const cur = this.game.screens && this.game.screens.current;
+    return cur ? cur.name : 'menu';
+  }
+
+  /* Which music track a screen belongs to. */
+  musicFor(name) {
+    const cfg = this.game.config.audio || {};
+    const music = cfg.music || {};
+    if (typeof music === 'string') return music; // backward compat: single track
+    const group = (name === 'gameplay' || name === 'pause' || name === 'gameover' || name === 'victory')
+      ? 'gameplay' : 'menu';
+    return music[group] || music.menu || null;
+  }
+
+  /* Switch the looping music track when the screen changes. */
+  playMusicFor(name) {
+    if (!this.settings.sound) return;
+    const src = this.musicFor(name);
+    if (!src) return;
+    if (this.music && this.music.dataset && this.music.dataset.src === src) return;
+    this.stopMusic();
+    this.startMusic(src);
   }
 
   play(name, volume = 1) {
@@ -49,14 +76,13 @@ class AudioEngine {
     } catch (error) { /* audio unavailable */ }
   }
 
-  startMusic() {
-    if (!this.settings.sound || this.music) return;
-    const src = this.game.config.audio && this.game.config.audio.music;
-    if (!src) return;
+  startMusic(src) {
+    if (!this.settings.sound || !src) return;
     try {
       const m = new Audio(src);
       m.loop = true;
       m.volume = 0.35;
+      m.dataset.src = src;
       m.play().catch(() => {});
       this.music = m;
     } catch (error) { /* noop */ }
@@ -71,7 +97,7 @@ class AudioEngine {
 
   setEnabled(on) {
     this.settings.sound = !!on;
-    if (on) this.startMusic();
+    if (on) this.playMusicFor(this.currentScreen());
     else { this.stopMusic(); this.pauseAll(); }
   }
 
@@ -91,7 +117,7 @@ class AudioEngine {
   toggleSound() {
     this.settings.sound = !this.settings.sound;
     this.game.storage.set('settings', this.settings);
-    if (this.settings.sound) this.startMusic();
+    if (this.settings.sound) this.playMusicFor(this.currentScreen());
     else this.stopMusic();
     return this.settings.sound;
   }
