@@ -39,8 +39,13 @@ class LoadingScreen extends BaseScreen {
     const list = PACK_IMAGES.map((name) => `assets/ui/${name}`);
     Object.values(config.backgrounds || {}).forEach((bg) => { if (bg) list.push(bg); });
 
-    // candies + specials
+    // candies (every shape x color) + specials
     Object.values((config.candy && config.candy.images) || {}).forEach((src) => list.push(src));
+    (config.candy && config.candy.shapes || []).forEach((shape) => {
+      (config.candy && config.candy.colors || []).forEach((color) => {
+        list.push(`assets/game/candy/${shape}_${color}.png`);
+      });
+    });
 
     // explosion frames
     FX_COLORS.forEach((col) => {

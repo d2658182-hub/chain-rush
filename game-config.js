@@ -39,17 +39,13 @@ const GAME_CONFIG = {
     ]
   },
 
-  /* ----- candies ----- */
+  /* ----- candies -----
+     shapes = pool of candy looks (each with all 7 colors); one shape is
+     picked at random per level so levels look different. */
   candy: {
     colors: ['red', 'orange', 'yellow', 'green', 'blue', 'pink', 'purple'],
+    shapes: ['bean', 'jelly', 'lollipop', 'swirl', 'swirlstroke'],
     images: {
-      red: 'assets/game/candy/red.png',
-      orange: 'assets/game/candy/orange.png',
-      yellow: 'assets/game/candy/yellow.png',
-      green: 'assets/game/candy/green.png',
-      blue: 'assets/game/candy/blue.png',
-      pink: 'assets/game/candy/pink.png',
-      purple: 'assets/game/candy/purple.png',
       golden: 'assets/game/candy/golden.png',
       rainbow: 'assets/game/candy/rainbow.png',
       bomb: 'assets/game/candy/bomb.png'

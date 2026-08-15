@@ -52,6 +52,7 @@ class GameplayScreen extends BaseScreen {
     this.drawing = false;
     this.shake = 0;
     this.obstacleCooldown = 0;
+    this.currentShape = null;
 
     this.imgs = {};
     this.fx = {};
@@ -64,11 +65,19 @@ class GameplayScreen extends BaseScreen {
   /* ---------- assets ---------- */
 
   loadImages() {
-    const map = (this.game.config.candy && this.game.config.candy.images) || {};
-    Object.keys(map).forEach((key) => {
+    const cfg = this.game.config.candy || {};
+    Object.keys(cfg.images || {}).forEach((key) => {
       const im = new Image();
-      im.src = map[key];
+      im.src = cfg.images[key];
       this.imgs[key] = im;
+    });
+    (cfg.shapes || []).forEach((shape) => {
+      (cfg.colors || []).forEach((color) => {
+        const key = `${shape}_${color}`;
+        const im = new Image();
+        im.src = `assets/game/candy/${key}.png`;
+        this.imgs[key] = im;
+      });
     });
   }
 
@@ -80,8 +89,12 @@ class GameplayScreen extends BaseScreen {
     });
   }
 
+  candyKey(c) {
+    return c.type === 'normal' ? `${this.currentShape}_${c.color}` : c.type;
+  }
+
   imgFor(c) {
-    return this.imgs[c.type === 'normal' ? c.color : c.type] || null;
+    return this.imgs[this.candyKey(c)] || null;
   }
 
   explosionFrames(color) {
@@ -350,6 +363,7 @@ class GameplayScreen extends BaseScreen {
     this.running = true;
     this.ended = false;
     this.applyWorldTheme();
+    this.setShape();
     for (let i = 0; i < this.cfg.candyCount; i += 1) this.candies.push(this.spawnCandy());
     this.spawnObstacles(this.cfg.obstacles);
     this.updateHUD();
@@ -361,6 +375,17 @@ class GameplayScreen extends BaseScreen {
   applyWorldTheme() {
     const world = this.cfg.world || LEVELS.world(this.level);
     this.el.style.backgroundImage = `url("assets/screens/gameplay-bg-${world}.png")`;
+  }
+
+  /* Pick a random candy shape for this level (visual variety). */
+  setShape() {
+    const shapes = this.game.config.candy.shapes || [];
+    if (!shapes.length) { this.currentShape = null; return; }
+    let idx = Math.floor(Math.random() * shapes.length);
+    if (shapes[idx] === this.currentShape && shapes.length > 1) {
+      idx = (idx + 1) % shapes.length;
+    }
+    this.currentShape = shapes[idx];
   }
 
   spawnObstacles(counts) {
@@ -460,6 +485,7 @@ class GameplayScreen extends BaseScreen {
       starRushT: this.starRushT,
       slowT: this.slowT,
       freezeT: this.freezeT,
+      shape: this.currentShape,
       candies: this.candies.map((c) => ({
         x: c.x, y: c.y, vx: c.vx, vy: c.vy, rot: c.rot, vr: c.vr,
         r: c.r, type: c.type, color: c.color, locked: false, spawn: 0
@@ -482,6 +508,8 @@ class GameplayScreen extends BaseScreen {
     this.starRushT = run.starRushT;
     this.slowT = run.slowT;
     this.freezeT = run.freezeT;
+    this.currentShape = run.shape || null;
+    if (!this.currentShape) this.setShape();
     this.candies = run.candies.map((c) => Object.assign({}, c));
     this.obstacles = (run.obstacles || []).map((o) => Object.assign({}, o));
     this.obstacleCooldown = 0;
@@ -830,7 +858,7 @@ class GameplayScreen extends BaseScreen {
         rot: Math.random() * 6,
         vr: (Math.random() - 0.5) * 10,
         r: c.r * 0.42,
-        img: c.type === 'normal' ? c.color : c.type,
+        img: this.candyKey(c),
         t: 0,
         life: 0.7
       });

@@ -11,12 +11,13 @@ const LEVELS = {
     return Math.min(6, Math.max(1, Math.ceil(this.clamp(level) / 50)));
   },
 
+  /* Gentle linear progression: levels grow slowly and stay reachable. */
   target(level) {
-    return Math.round(250 + 40 * Math.pow(level, 1.35));
+    return Math.round(600 + 120 * level);
   },
 
   time(level) {
-    return Math.round(30 + Math.min(15, level * 0.3));
+    return Math.round(30 + Math.min(30, level * 0.5));
   },
 
   candyCount(level) {
