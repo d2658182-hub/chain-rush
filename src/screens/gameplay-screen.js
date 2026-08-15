@@ -43,7 +43,6 @@ class GameplayScreen extends BaseScreen {
     this.freezeT = 0;
 
     this.candies = [];
-    this.decor = [];
     this.particles = [];
     this.popups = [];
     this.chain = [];
@@ -145,7 +144,6 @@ class GameplayScreen extends BaseScreen {
     this.onResize = () => this.resize();
     window.addEventListener('resize', this.onResize);
     this.bindInput();
-    this.initDecor();
 
     if (this.game.resumeRun && this.game.run) {
       this.restoreRun(this.game.run);
@@ -253,7 +251,7 @@ class GameplayScreen extends BaseScreen {
   /* ---------- geometry ---------- */
 
   radius() {
-    return Math.max(16, Math.min(34, Math.min(this.w, this.h) * 0.045));
+    return Math.max(18, Math.min(40, Math.min(this.w, this.h) * 0.055));
   }
 
   hudTop() {
@@ -362,25 +360,6 @@ class GameplayScreen extends BaseScreen {
     return colors[Math.floor(Math.random() * colors.length)];
   }
 
-  /* decor background candies */
-  initDecor() {
-    if (this.decor.length) return;
-    const colors = this.game.config.candy.colors;
-    for (let i = 0; i < 12; i += 1) {
-      this.decor.push({
-        x: Math.random() * this.w,
-        y: Math.random() * this.h,
-        vx: (Math.random() - 0.5) * 18,
-        vy: (Math.random() - 0.5) * 12,
-        rot: Math.random() * 6,
-        vr: (Math.random() - 0.5) * 0.5,
-        r: this.radius() * (0.5 + Math.random() * 0.7),
-        color: colors[Math.floor(Math.random() * colors.length)],
-        alpha: 0.1 + Math.random() * 0.08
-      });
-    }
-  }
-
   /* ---------- run state ---------- */
 
   serializeRun() {
@@ -482,12 +461,6 @@ class GameplayScreen extends BaseScreen {
 
     const sf = this.speedFactor();
     this.candies.forEach((c) => this.updateCandy(c, dt, sf));
-    this.decor.forEach((d) => {
-      d.x += d.vx * dt;
-      d.y += d.vy * dt;
-      d.rot += d.vr * dt;
-      this.wrapDecor(d);
-    });
 
     this.particles = this.particles.filter((p) => this.updateParticle(p, dt));
     this.popups = this.popups.filter((p) => {
@@ -514,13 +487,6 @@ class GameplayScreen extends BaseScreen {
     if (c.y > bottom - pad) { c.y = bottom - pad; c.vy = -Math.abs(c.vy); }
   }
 
-  wrapDecor(d) {
-    if (d.x < -d.r) d.x = this.w + d.r;
-    if (d.x > this.w + d.r) d.x = -d.r;
-    if (d.y < -d.r) d.y = this.h + d.r;
-    if (d.y > this.h + d.r) d.y = -d.r;
-  }
-
   updateParticle(p, dt) {
     p.t = (p.t || 0) + dt;
     if (p.kind === 'burst') {
@@ -543,25 +509,10 @@ class GameplayScreen extends BaseScreen {
     if (this.shake > 0) {
       ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
     }
-    this.drawDecor(ctx);
     this.drawChainLine(ctx);
     this.candies.forEach((c) => this.drawCandy(ctx, c));
     this.drawParticles(ctx);
     this.drawPopups(ctx);
-  }
-
-  drawDecor(ctx) {
-    this.decor.forEach((d) => {
-      const img = this.imgs[d.color];
-      if (!img || !img.complete) return;
-      ctx.save();
-      ctx.globalAlpha = d.alpha;
-      ctx.translate(d.x, d.y);
-      ctx.rotate(d.rot);
-      ctx.drawImage(img, -d.r, -d.r, d.r * 2, d.r * 2);
-      ctx.restore();
-    });
-    ctx.globalAlpha = 1;
   }
 
   drawChainLine(ctx) {
@@ -593,9 +544,13 @@ class GameplayScreen extends BaseScreen {
     ctx.save();
     ctx.translate(c.x, c.y);
     ctx.rotate(c.rot);
+    ctx.shadowColor = 'rgba(30, 15, 0, 0.45)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 4;
     if (c.locked) {
       ctx.shadowColor = this.colorHex(c);
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 22;
+      ctx.shadowOffsetY = 0;
     }
     ctx.drawImage(img, -r * 1.1, -r, r * 2.2, r * 2);
     ctx.restore();

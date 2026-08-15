@@ -13,14 +13,13 @@ class ShopScreen extends BaseScreen {
     this.el.className = 'screen shop-screen';
     this.el.style.backgroundImage = `url("${this.game.config.backgrounds.menu}")`;
 
-    const panel = new Panel({ image: 'assets/ui/f.png' });
-    panel.add(
-      this.titleEl('SHOP'),
-      this.coinsEl(),
-      this.itemsEl(items),
-      this.backButton()
-    );
-    this.el.appendChild(panel.el);
+    const content = document.createElement('div');
+    content.className = 'shop-content';
+    content.appendChild(this.titleEl('SHOP'));
+    content.appendChild(this.coinsEl());
+    content.appendChild(this.itemsEl(items));
+    content.appendChild(this.backButton().el);
+    this.el.appendChild(content);
 
     this.onKeyDown((event) => {
       if (event.code === 'Escape') this.game.show('menu');
