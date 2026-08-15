@@ -43,6 +43,7 @@ class GameplayScreen extends BaseScreen {
     this.freezeT = 0;
 
     this.candies = [];
+    this.obstacles = [];
     this.particles = [];
     this.popups = [];
     this.chain = [];
@@ -50,11 +51,14 @@ class GameplayScreen extends BaseScreen {
     this.path = [];
     this.drawing = false;
     this.shake = 0;
+    this.obstacleCooldown = 0;
 
     this.imgs = {};
     this.fx = {};
+    this.obstacleImgs = {};
 
     this.loadImages();
+    this.loadObstacleImages();
   }
 
   /* ---------- assets ---------- */
@@ -65,6 +69,14 @@ class GameplayScreen extends BaseScreen {
       const im = new Image();
       im.src = map[key];
       this.imgs[key] = im;
+    });
+  }
+
+  loadObstacleImages() {
+    ['rock', 'spikes'].forEach((key) => {
+      const im = new Image();
+      im.src = `assets/game/obstacles/${key}.png`;
+      this.obstacleImgs[key] = im;
     });
   }
 
@@ -113,11 +125,18 @@ class GameplayScreen extends BaseScreen {
       </div>
       <div class="hud-timer"><div class="hud-timer-fill"></div></div>
       <div class="hud-combo" aria-hidden="true">x1.5</div>
+      <div class="level-banner" aria-hidden="true">
+        <div class="level-banner-level">LEVEL 1</div>
+        <div class="level-banner-sub">GOAL 0</div>
+      </div>
       <div class="hud-powerups">${this.powerUpButtons()}</div>
     `;
 
     this.el.appendChild(this.canvas);
     this.el.appendChild(this.hud);
+
+    this.levelBanner = this.hud.querySelector('.level-banner');
+    this.bannerTimer = null;
 
     this.hud.querySelector('.btn-pause').addEventListener('click', () => this.pause());
     this.hud.querySelectorAll('.pwr-btn').forEach((btn) => {
@@ -161,6 +180,7 @@ class GameplayScreen extends BaseScreen {
     this.unbindInput();
     cancelAnimationFrame(this.frameId);
     this.frameId = null;
+    clearTimeout(this.bannerTimer);
     if (this.running) this.game.run = this.serializeRun();
   }
 
@@ -192,6 +212,10 @@ class GameplayScreen extends BaseScreen {
     e.preventDefault();
     if (!this.running) return;
     const pt = this.toLocal(e);
+    if (this.obstacles.length && this.hitObstacle(pt)) {
+      this.touchObstacle();
+      return;
+    }
     this.drawing = true;
     this.path = [pt];
     const hit = this.hitCandy(pt);
@@ -207,6 +231,10 @@ class GameplayScreen extends BaseScreen {
     if (!this.drawing || !this.running) return;
     const pt = this.toLocal(e);
     this.path.push(pt);
+    if (this.obstacles.length && this.hitObstacle(pt)) {
+      this.touchObstacle();
+      return;
+    }
     if (this.chain.length === 0) {
       const hit = this.hitCandy(pt);
       if (hit) {
@@ -310,6 +338,7 @@ class GameplayScreen extends BaseScreen {
     this.slowT = 0;
     this.freezeT = 0;
     this.candies = [];
+    this.obstacles = [];
     this.particles = [];
     this.popups = [];
     this.chain = [];
@@ -317,11 +346,66 @@ class GameplayScreen extends BaseScreen {
     this.path = [];
     this.drawing = false;
     this.shake = 0;
+    this.obstacleCooldown = 0;
     this.running = true;
     this.ended = false;
+    this.applyWorldTheme();
     for (let i = 0; i < this.cfg.candyCount; i += 1) this.candies.push(this.spawnCandy());
+    this.spawnObstacles(this.cfg.obstacles);
     this.updateHUD();
+    this.showLevelIntro();
     this.sdk('level_started');
+  }
+
+  /* Background theme changes every 50 levels (world 1..6). */
+  applyWorldTheme() {
+    const world = this.cfg.world || LEVELS.world(this.level);
+    this.el.style.backgroundImage = `url("assets/screens/gameplay-bg-${world}.png")`;
+  }
+
+  spawnObstacles(counts) {
+    counts = counts || { rock: 0, spikes: 0 };
+    for (let i = 0; i < (counts.rock || 0); i += 1) this.obstacles.push(this.spawnObstacle('rock'));
+    for (let i = 0; i < (counts.spikes || 0); i += 1) this.obstacles.push(this.spawnObstacle('spikes'));
+  }
+
+  spawnObstacle(type) {
+    const r = this.radius() * 1.1;
+    const pad = r + 10;
+    const top = this.hudTop();
+    const bottom = this.h - this.powerBarH();
+    const x = pad + Math.random() * (this.w - 2 * pad);
+    const y = top + pad + Math.random() * Math.max(20, (bottom - top - 2 * pad));
+    const angle = Math.random() * Math.PI * 2;
+    const sp = this.cfg.speed * (0.75 + Math.random() * 0.5) * (type === 'spikes' ? 1.35 : 1);
+    return {
+      x, y,
+      vx: Math.cos(angle) * sp,
+      vy: Math.sin(angle) * sp,
+      rot: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 2,
+      r,
+      type
+    };
+  }
+
+  /* Level intro banner: announces the level + new mechanics/milestones. */
+  showLevelIntro() {
+    if (!this.levelBanner) return;
+    const goal = this.target.toLocaleString('en-US');
+    const prev = LEVELS.config(this.level - 1);
+    let sub;
+    if (this.level % 25 === 0) sub = `MILESTONE • GOAL ${goal}`;
+    else if (this.cfg.colorCount > prev.colorCount) sub = `NEW COLOR • GOAL ${goal}`;
+    else if (this.cfg.specialChance > prev.specialChance) sub = `SPECIAL CANDIES • GOAL ${goal}`;
+    else sub = `GOAL ${goal}`;
+    this.levelBanner.querySelector('.level-banner-level').textContent = `LEVEL ${this.level}`;
+    this.levelBanner.querySelector('.level-banner-sub').textContent = sub;
+    this.levelBanner.classList.remove('show');
+    void this.levelBanner.offsetWidth; // restart the CSS animation
+    this.levelBanner.classList.add('show');
+    clearTimeout(this.bannerTimer);
+    this.bannerTimer = setTimeout(() => this.levelBanner.classList.remove('show'), 1900);
   }
 
   spawnCandy() {
@@ -379,6 +463,9 @@ class GameplayScreen extends BaseScreen {
       candies: this.candies.map((c) => ({
         x: c.x, y: c.y, vx: c.vx, vy: c.vy, rot: c.rot, vr: c.vr,
         r: c.r, type: c.type, color: c.color, locked: false, spawn: 0
+      })),
+      obstacles: this.obstacles.map((o) => ({
+        x: o.x, y: o.y, vx: o.vx, vy: o.vy, rot: o.rot, vr: o.vr, r: o.r, type: o.type
       }))
     };
   }
@@ -396,6 +483,9 @@ class GameplayScreen extends BaseScreen {
     this.slowT = run.slowT;
     this.freezeT = run.freezeT;
     this.candies = run.candies.map((c) => Object.assign({}, c));
+    this.obstacles = (run.obstacles || []).map((o) => Object.assign({}, o));
+    this.obstacleCooldown = 0;
+    this.applyWorldTheme();
     this.particles = [];
     this.popups = [];
     this.chain = [];
@@ -459,9 +549,11 @@ class GameplayScreen extends BaseScreen {
     }
 
     this.shake = Math.max(0, this.shake - dt * 40);
+    this.obstacleCooldown = Math.max(0, this.obstacleCooldown - dt);
 
     const sf = this.speedFactor();
     this.candies.forEach((c) => this.updateCandy(c, dt, sf));
+    this.obstacles.forEach((o) => this.updateObstacle(o, dt, sf));
 
     this.particles = this.particles.filter((p) => this.updateParticle(p, dt));
     this.popups = this.popups.filter((p) => {
@@ -488,6 +580,40 @@ class GameplayScreen extends BaseScreen {
     if (c.y > bottom - pad) { c.y = bottom - pad; c.vy = -Math.abs(c.vy); }
   }
 
+  updateObstacle(o, dt, sf) {
+    o.x += o.vx * dt * sf;
+    o.y += o.vy * dt * sf;
+    o.rot += o.vr * dt;
+    const pad = o.r + 6;
+    const top = this.hudTop();
+    const bottom = this.h - this.powerBarH();
+    if (o.x < pad) { o.x = pad; o.vx = Math.abs(o.vx); }
+    if (o.x > this.w - pad) { o.x = this.w - pad; o.vx = -Math.abs(o.vx); }
+    if (o.y < top + pad) { o.y = top + pad; o.vy = Math.abs(o.vy); }
+    if (o.y > bottom - pad) { o.y = bottom - pad; o.vy = -Math.abs(o.vy); }
+  }
+
+  hitObstacle(pt) {
+    for (const o of this.obstacles) {
+      const d = Math.hypot(o.x - pt.x, o.y - pt.y);
+      if (d <= o.r + this.radius() * 0.9) return o;
+    }
+    return null;
+  }
+
+  touchObstacle() {
+    if (this.obstacleCooldown > 0) return;
+    this.obstacleCooldown = 0.9;
+    if (this.chain.length > 0) {
+      this.breakChain();
+    } else {
+      this.timeLeft = Math.max(0, this.timeLeft - 0.5);
+      this.shake = Math.max(this.shake, 6);
+      this.game.audio.play('defeat', 0.4);
+      this.updateHUD();
+    }
+  }
+
   updateParticle(p, dt) {
     p.t = (p.t || 0) + dt;
     if (p.kind === 'burst') {
@@ -512,6 +638,7 @@ class GameplayScreen extends BaseScreen {
     }
     this.drawChainLine(ctx);
     this.candies.forEach((c) => this.drawCandy(ctx, c));
+    this.drawObstacles(ctx);
     this.drawParticles(ctx);
     this.drawPopups(ctx);
   }
@@ -555,6 +682,21 @@ class GameplayScreen extends BaseScreen {
     }
     ctx.drawImage(img, -r * 1.1, -r, r * 2.2, r * 2);
     ctx.restore();
+  }
+
+  drawObstacles(ctx) {
+    this.obstacles.forEach((o) => {
+      const img = this.obstacleImgs[o.type];
+      if (!img || !img.complete) return;
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      ctx.rotate(o.rot);
+      ctx.shadowColor = 'rgba(30, 15, 0, 0.5)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
+      ctx.drawImage(img, -o.r, -o.r, o.r * 2, o.r * 2);
+      ctx.restore();
+    });
   }
 
   drawParticles(ctx) {

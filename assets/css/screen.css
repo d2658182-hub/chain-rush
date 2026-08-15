@@ -361,6 +361,45 @@ body {
   to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
 
+.level-banner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.level-banner.show {
+  animation: level-banner-in 1.9s ease-out forwards;
+}
+
+.level-banner-level {
+  font-size: clamp(42px, 13vw, 76px);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 4px 0 rgba(160, 80, 0, 0.95), 0 8px 0 rgba(90, 40, 0, 0.85), 0 14px 30px rgba(0, 0, 0, 0.55);
+}
+
+.level-banner-sub {
+  font-size: clamp(16px, 5vw, 28px);
+  font-weight: 800;
+  color: #ffe08a;
+  text-shadow: 0 2px 0 rgba(160, 60, 0, 0.95), 0 6px 16px rgba(0, 0, 0, 0.55);
+}
+
+@keyframes level-banner-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  12% { opacity: 1; transform: scale(1.06); }
+  20% { opacity: 1; transform: scale(1); }
+  75% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+
 .hud-powerups {
   margin-top: auto;
   display: flex;
