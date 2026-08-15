@@ -799,7 +799,7 @@ class GameplayScreen extends BaseScreen {
     this.running = false;
     this.score += Math.round(this.timeLeft * 20);
 
-    const coins = Math.round(this.score / 10) + this.level * 20;
+    const coins = 25 + this.level * 3;
     this.game.storage.set('coins', this.game.storage.get('coins', 0) + coins);
     const best = Math.max(this.game.storage.get('best', 0), this.score);
     this.game.storage.set('best', best);
@@ -825,7 +825,7 @@ class GameplayScreen extends BaseScreen {
     this.ended = true;
     this.running = false;
 
-    const coins = Math.round(this.score / 50);
+    const coins = Math.max(3, Math.round(this.score / 60));
     this.game.storage.set('coins', this.game.storage.get('coins', 0) + coins);
     const best = Math.max(this.game.storage.get('best', 0), this.score);
     this.game.storage.set('best', best);
