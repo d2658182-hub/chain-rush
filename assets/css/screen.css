@@ -32,8 +32,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-size: 256px 256px;
-  background-repeat: repeat;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   overflow: hidden;
   animation: screen-in 0.35s ease-out both;
 }
