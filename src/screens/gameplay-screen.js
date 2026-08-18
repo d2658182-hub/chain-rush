@@ -235,7 +235,7 @@ class GameplayScreen extends BaseScreen {
     if (hit) {
       this.chain = [hit];
       hit.locked = true;
-      this.chainColor = hit.type === 'normal' ? hit.color : hit.type;
+      this.chainColor = this.startColor(hit);
       this.game.audio.play('collect', 0.8);
     }
   }
@@ -253,7 +253,7 @@ class GameplayScreen extends BaseScreen {
       if (hit) {
         this.chain = [hit];
         hit.locked = true;
-        this.chainColor = hit.type === 'normal' ? hit.color : hit.type;
+        this.chainColor = this.startColor(hit);
         this.game.audio.play('collect', 0.8);
       }
       return;
@@ -267,6 +267,7 @@ class GameplayScreen extends BaseScreen {
         if (this.matches(this.chainColor, c)) {
           c.locked = true;
           this.chain.push(c);
+          if (this.chainColor === null && c.type === 'normal') this.chainColor = c.color;
           this.game.audio.play('collect', 0.8);
         } else {
           this.breakChain();
@@ -320,9 +321,17 @@ class GameplayScreen extends BaseScreen {
   }
 
   matches(chainColor, c) {
-    if (c.type !== 'normal') return true;   // specials join any chain
-    if (chainColor === null || chainColor === 'golden' || chainColor === 'rainbow' || chainColor === 'bomb') return true;
+    if (c.type !== 'normal') return true;   // specials (golden/bomb/rainbow) join any chain
+    if (chainColor === null || chainColor === 'rainbow') return true;   // undecided, or rainbow is the wildcard
     return c.color === chainColor;
+  }
+
+  /* Color the chain locks onto when it starts on a candy. Golden/bomb are
+     colorless specials: the first normal candy decides the chain color. */
+  startColor(hit) {
+    if (hit.type === 'normal') return hit.color;
+    if (hit.type === 'rainbow') return 'rainbow';
+    return null;
   }
 
   colorHex(c) {
@@ -792,7 +801,7 @@ class GameplayScreen extends BaseScreen {
 
     this.combo += 1;
     this.comboTimer = 3;
-    this.multiplier = Math.min(5, 1 + this.combo * 0.5);
+    this.multiplier = Math.min(5, 1 + (this.combo - 1) * 0.5);
 
     let bonus = 0;
     const primary = chain.find((c) => c.type === 'normal');

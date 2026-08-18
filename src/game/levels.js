@@ -11,13 +11,16 @@ const LEVELS = {
     return Math.min(6, Math.max(1, Math.ceil(this.clamp(level) / 50)));
   },
 
-  /* Gentle linear progression: levels grow slowly and stay reachable. */
+  /* Score target — flattened vs the old spec so high levels stay reachable
+     (250 + 40 * level^1.15: niv300 ≈ 28 500 instead of ≈ 88 500). */
   target(level) {
-    return Math.round(600 + 120 * level);
+    return Math.round(250 + 40 * Math.pow(level, 1.15));
   },
 
+  /* Timer — longer on high levels so the final worlds stay beatable
+     (30 + min(30, (level-1) * 0.5) seconds, capped at 60s). */
   time(level) {
-    return Math.round(30 + Math.min(30, level * 0.5));
+    return Math.round(30 + Math.min(30, (level - 1) * 0.5));
   },
 
   candyCount(level) {

@@ -58,8 +58,8 @@ Tout est produit par `levelConfig(level)` (config/courbe, pas de niveau codé à
 
 | Paramètre | Formule | Niv 1 | Niv 50 | Niv 150 | Niv 300 |
 |---|---|---|---|---|---|
-| Score cible | `250 + 40 * level^1.35` | ~290 | ~8 050 | ~34 700 | ~88 500 |
-| Chrono | `30 + min(15, level * 0.3)` s | 30 s | 45 s | 45 s | 45 s |
+| Score cible | `250 + 40 * level^1.15` | ~290 | ~3 850 | ~12 970 | ~28 470 |
+| Chrono | `30 + min(30, (level-1) * 0.5)` s | 30 s | 55 s | 60 s | 60 s |
 | Bonbons à l'écran | `min(22, 8 + round(level * 0.06))` | 8 | 11 | 17 | 22 |
 | Couleurs | `min(7, 3 + floor(level / 45))` | 3 | 4 | 6 | 7 |
 | Vitesse | `40 + level * 1.2` px/s | 41 | 100 | 220 | 400 |
