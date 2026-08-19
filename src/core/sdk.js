@@ -38,7 +38,7 @@ const SDK = (function () {
 
     /* Resolves true ONLY on rewarded state 'rewarded'. */
     rewarded: call(function (b) {
-      if (!b || !b.advertisement || !b.advertisement.isRewardedSupported) return false;
+      if (!b || !b.advertisement || !b.advertisement.isRewardedSupported) return Promise.resolve(false);
       return new Promise(function (resolve) {
         let settled = false;
         const done = function (ok) { if (!settled) { settled = true; resolve(ok); } };
@@ -46,37 +46,13 @@ const SDK = (function () {
           if (state === 'rewarded') done(true);
           else if (state === 'closed' || state === 'failed') done(false);
         };
-        b.advertisement.on(b.EVENT_NAME.REWARDED_STATE_CHANGED, onState);
+        /* v2: subscribe on platform event bus, not on advertisement */
+        b.platform.on(b.EVENT_NAME.REWARDED_STATE_CHANGED, onState);
         try { b.advertisement.showRewarded(); } catch (e) { done(false); }
       });
     }),
 
-    /* ---- gameplay lifecycle ---- */
-    gameplayStart: call(function (b) {
-      if (b && b.gameplay && typeof b.gameplay.start === 'function') {
-        try { b.gameplay.start(); } catch (e) {}
-      }
-    }),
-    gameplayPause: call(function (b) {
-      if (b && b.gameplay && typeof b.gameplay.pause === 'function') {
-        try { b.gameplay.pause(); } catch (e) {}
-      }
-    }),
-    gameplayResume: call(function (b) {
-      if (b && b.gameplay && typeof b.gameplay.resume === 'function') {
-        try { b.gameplay.resume(); } catch (e) {}
-      }
-    }),
-    gameplayStop: call(function (b) {
-      if (b && b.gameplay && typeof b.gameplay.stop === 'function') {
-        try { b.gameplay.stop(); } catch (e) {}
-      }
-    }),
-    gameplayFail: call(function (b) {
-      if (b && b.gameplay && typeof b.gameplay.fail === 'function') {
-        try { b.gameplay.fail(); } catch (e) {}
-      }
-    }),
+    /* ---- gameplay lifecycle (v2: via platform.sendMessage) ---- */
 
     onPause: call(function (b, cb) {
       try { if (b) b.platform.on(b.EVENT_NAME.PAUSE_STATE_CHANGED, cb); } catch (e) {}
@@ -96,15 +72,17 @@ const SDK = (function () {
       return b.platform.isAudioEnabled;
     }),
 
-    /* Cloud storage (bridge.storage). Falls back cleanly when absent. */
+    /* Cloud storage (bridge.storage v2 — array API). Falls back cleanly. */
     storageGet: call(function (b, key, fallback) {
-      if (!b || !b.storage || typeof b.storage.get !== 'function') return fallback;
-      try { return b.storage.get(key, fallback); } catch (e) { return fallback; }
+      if (!b || !b.storage || typeof b.storage.get !== 'function') return Promise.resolve(fallback);
+      return b.storage.get([key]).then(function (data) {
+        return (data && data.length > 0 && data[0] != null) ? data[0] : fallback;
+      }).catch(function () { return fallback; });
     }),
 
     storageSet: call(function (b, key, value) {
-      if (!b || !b.storage || typeof b.storage.set !== 'function') return;
-      try { return b.storage.set(key, value); } catch (e) { /* noop */ }
+      if (!b || !b.storage || typeof b.storage.set !== 'function') return Promise.resolve();
+      return b.storage.set([key], [value]).catch(function () { /* noop */ });
     })
   };
 })();
