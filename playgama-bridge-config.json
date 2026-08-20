@@ -1,0 +1,27 @@
+{
+  "advertisement": {
+    "minimumDelayBetweenInterstitial": 60,
+    "initialInterstitialDelay": 0,
+    "interstitial": {
+      "disable": false,
+      "preloadOnStart": "run_transition",
+      "placementFallback": "run_transition",
+      "placements": [
+        { "id": "run_transition" }
+      ]
+    },
+    "rewarded": {
+      "disable": false,
+      "preloadOnStart": "continue",
+      "placementFallback": "continue",
+      "placements": [
+        { "id": "continue" },
+        { "id": "double_coins" },
+        { "id": "shop_rainbow_pop" },
+        { "id": "shop_star_rush" },
+        { "id": "shop_big_blast" },
+        { "id": "shop_sweet_time" }
+      ]
+    }
+  }
+}
