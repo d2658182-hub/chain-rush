@@ -1,16 +1,16 @@
-/* Persistent storage.
-   Primary store: localStorage (always works, even without the bridge).
-   Cloud store: bridge.storage (Playgama) — pulled in once at boot and kept
-   in sync on every write, so progress survives across devices when the SDK
-   is present. Every call is defensive and never crashes the game. */
+/* Progress persistence.
+   Playgama Bridge Storage is the source of truth on supported platforms.
+   localStorage is used only when the Bridge CDN is unavailable, so local
+   development still works without silently replacing cloud saves. */
 
 class Storage {
   constructor(gameId) {
     this.prefix = `gt_${gameId}_`;
-    this.cloudReady = false;
+    this.cache = Object.create(null);
+    this.bridgeActive = false;
+    this.readyPromise = null;
   }
 
-  /* Known persistent keys — used to pull cloud state at boot. */
   static keys() {
     return [
       'coins', 'level', 'best', 'settings', 'streak',
@@ -18,53 +18,72 @@ class Storage {
     ];
   }
 
-  get(key, fallback = null) {
+  parse(raw, fallback = null) {
+    if (raw === null || raw === undefined || raw === '') return fallback;
+    try { return JSON.parse(raw); } catch (error) { return raw; }
+  }
+
+  readOffline(key, fallback) {
     try {
-      const value = localStorage.getItem(this.prefix + key);
-      return value === null ? fallback : JSON.parse(value);
+      const raw = localStorage.getItem(this.prefix + key);
+      return raw === null ? fallback : this.parse(raw, fallback);
     } catch (error) {
       return fallback;
     }
   }
 
+  writeOffline(key, value) {
+    try { localStorage.setItem(this.prefix + key, JSON.stringify(value)); } catch (error) { /* unavailable */ }
+  }
+
+  get(key, fallback = null) {
+    return Object.prototype.hasOwnProperty.call(this.cache, key) ? this.cache[key] : fallback;
+  }
+
   set(key, value) {
-    try {
-      localStorage.setItem(this.prefix + key, JSON.stringify(value));
-    } catch (error) {
-      /* storage unavailable */
+    this.cache[key] = value;
+    if (this.bridgeActive && typeof SDK !== 'undefined') {
+      SDK.storageSet(this.prefix + key, JSON.stringify(value));
+    } else if (!this.readyPromise) {
+      this.writeOffline(key, value);
     }
-    this.cloudSet(key, value);
   }
 
-  /* Mirror a write to cloud storage (fire-and-forget, defensive). */
-  cloudSet(key, value) {
-    if (!this.cloudReady || typeof SDK === 'undefined') return;
-    try { SDK.storageSet(this.prefix + key, value); } catch (error) { /* noop */ }
-  }
-
-  /* Pull cloud data into localStorage once the bridge is ready.
-     Cloud wins over local (so cross-device progress survives). */
-  initCloud() {
-    if (typeof SDK === 'undefined' || !SDK.available) return Promise.resolve(false);
-    return SDK.available().then((ok) => {
-      if (!ok) return false;
-      const keys = Storage.keys();
-      return Promise.all(keys.map((key) =>
-        SDK.storageGet(this.prefix + key, null).then((value) => ({ key, value }))
-      )).then((pairs) => {
-        this.cloudReady = true;
-        pairs.forEach(({ key, value }) => {
-          if (value !== null && value !== undefined) {
-            try {
-              localStorage.setItem(this.prefix + key, JSON.stringify(value));
-            } catch (error) { /* noop */ }
-          }
+  init() {
+    if (this.readyPromise) return this.readyPromise;
+    this.readyPromise = (typeof SDK !== 'undefined' && SDK.available
+      ? SDK.available()
+      : Promise.resolve(false))
+      .then((available) => {
+        this.bridgeActive = !!available;
+        if (this.bridgeActive) {
+          return Promise.all(Storage.keys().map((key) =>
+            SDK.storageGet(this.prefix + key).then((raw) => ({ key, raw }))
+          )).then((values) => {
+            values.forEach(({ key, raw }) => {
+              const value = this.parse(raw, null);
+              if (value !== null && value !== undefined) this.cache[key] = value;
+            });
+            return true;
+          });
+        }
+        Storage.keys().forEach((key) => {
+          const value = this.readOffline(key, null);
+          if (value !== null && value !== undefined) this.cache[key] = value;
         });
-        return true;
-      }).catch(() => {
-        this.cloudReady = true;
+        return false;
+      })
+      .catch(() => {
+        this.bridgeActive = false;
+        Storage.keys().forEach((key) => {
+          const value = this.readOffline(key, null);
+          if (value !== null && value !== undefined) this.cache[key] = value;
+        });
         return false;
       });
-    }).catch(() => false);
+    return this.readyPromise;
   }
+
+  /* Backward-compatible name used by older boot code. */
+  initCloud() { return this.init(); }
 }

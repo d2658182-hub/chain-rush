@@ -94,8 +94,9 @@ Tout est produit par `levelConfig(level)` (config/courbe, pas de niveau codé à
   3. **Color Bomb** (élimine tous les bonbons d'une couleur) — icône bombe
   4. **Freeze** (gel des bonbons, 5 s) — icône glace/flocon
 - Les power-ups sont **stockables** et activables en jeu via les boutons du HUD.
-- Persistance : `localStorage` (clé du jeu) : pièces, stock de power-ups, niveau,
-  meilleur score, settings son.
+- Persistance : Playgama `bridge.storage` (clé préfixée par le jeu) : pièces, stock
+  de power-ups, niveau, meilleur score, settings son. `localStorage` n'est utilisé
+  qu'en mode hors Bridge.
 
 ---
 

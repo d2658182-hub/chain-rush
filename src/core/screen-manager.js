@@ -13,10 +13,7 @@ class ScreenManager {
 
   show(name, options = {}) {
     const next = this.screens.get(name);
-    if (!next) {
-      console.error(`Screen "${name}" not found`);
-      return;
-    }
+    if (!next) return;
     const previous = this.current;
     if (previous && previous !== next) previous.exit(next);
     next.build(options);

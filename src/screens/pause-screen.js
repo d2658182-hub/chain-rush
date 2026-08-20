@@ -38,6 +38,7 @@ class PauseScreen extends BaseScreen {
   }
 
   resume() {
+    if (this.game.platformPaused) return;
     this.game.audio.click();
     this.game.resumeRun = true;
     this.game.show('gameplay');

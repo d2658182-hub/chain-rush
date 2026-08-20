@@ -7,8 +7,10 @@ class Game {
     this.input = new Input(this);
     this.screens = new ScreenManager(this);
     this.ads = new Ads(this);
-    this.run = null;         // serialized run state (for pause / continue)
-    this.resumeRun = false;  // when true, gameplay restores this.run on enter
+    this.run = null;
+    this.resumeRun = false;
+    this.platformPaused = false;
+    this.language = 'en';
   }
 
   register(screen) {
@@ -22,6 +24,10 @@ class Game {
   }
 
   start() {
-    this.show(this.config.firstScreen);
+    this.storage.init().then(() => {
+      const settings = this.storage.get('settings', null);
+      if (settings) Object.assign(this.audio.settings, settings);
+      this.show(this.config.firstScreen);
+    });
   }
 }

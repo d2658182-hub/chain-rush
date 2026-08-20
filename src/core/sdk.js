@@ -1,88 +1,133 @@
-/* Playgama Bridge wrapper — every call is defensive so the game also runs
-   with NO bridge present (local dev, plain web). Never crashes the loop. */
+/* Playgama Bridge v2 adapter.
+   The bridge is optional for local development, but every platform call is
+   awaited and defensive. Cloud storage is used by Storage when available. */
 
 const SDK = (function () {
-  const bridgePromise = (window.bridge && typeof window.bridge.initialize === 'function')
-    ? window.bridge.initialize().then(function () { return window.bridge; }).catch(function () { return null; })
+  const bridgePromise = (typeof window !== 'undefined' && window.bridge
+    && typeof window.bridge.initialize === 'function')
+    ? Promise.resolve().then(() => window.bridge.initialize())
+      .then(() => window.bridge)
+      .catch(() => null)
     : Promise.resolve(null);
 
-  const call = function (fn) {
-    return function () {
-      const args = arguments;
-      return bridgePromise.then(function (b) { return fn.apply(null, [b].concat(Array.prototype.slice.call(args))); });
-    };
+  const call = (fn, fallback = null) => (...args) => bridgePromise
+    .then((bridge) => {
+      try { return fn(bridge, ...args); } catch (error) { return fallback; }
+    })
+    .catch(() => fallback);
+
+  const eventName = (bridge, name) => bridge && bridge.EVENT_NAME
+    ? bridge.EVENT_NAME[name]
+    : null;
+
+  const subscribe = (bridge, name, callback) => {
+    if (!bridge || !bridge.platform || typeof bridge.platform.on !== 'function') return () => {};
+    const event = eventName(bridge, name);
+    if (!event || typeof callback !== 'function') return () => {};
+    try {
+      const unsubscribe = bridge.platform.on(event, callback);
+      if (typeof unsubscribe === 'function') return unsubscribe;
+      if (typeof bridge.platform.off === 'function') {
+        return () => bridge.platform.off(event, callback);
+      }
+    } catch (error) { /* unsupported host */ }
+    return () => {};
   };
 
+  const showAd = (kind, placement) => call((bridge) => {
+    const advertisement = bridge && bridge.advertisement;
+    const supported = advertisement && advertisement[`is${kind}Supported`];
+    if (!supported) return Promise.resolve('failed');
+    const event = eventName(bridge, `${kind.toUpperCase()}_STATE_CHANGED`);
+    if (!event || !bridge.platform || typeof bridge.platform.on !== 'function') {
+      return Promise.resolve('failed');
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      let unsubscribe = () => {};
+      const finish = (state) => {
+        if (settled) return;
+        settled = true;
+        try { unsubscribe(); } catch (error) { /* noop */ }
+        resolve(state);
+      };
+      const onState = (state) => {
+        if (kind === 'Rewarded') {
+          if (state === 'rewarded') finish('rewarded');
+          else if (state === 'closed' || state === 'failed') finish('failed');
+        } else if (state === 'closed' || state === 'failed') {
+          finish(state);
+        }
+      };
+      try {
+        const registered = bridge.platform.on(event, onState);
+        if (typeof registered === 'function') unsubscribe = registered;
+        else if (typeof bridge.platform.off === 'function') unsubscribe = () => bridge.platform.off(event, onState);
+        const method = kind === 'Rewarded' ? 'showRewarded' : 'showInterstitial';
+        const result = placement == null
+          ? bridge.advertisement[method]()
+          : bridge.advertisement[method](placement);
+        if (result && typeof result.catch === 'function') result.catch(() => finish('failed'));
+      } catch (error) {
+        finish('failed');
+      }
+    });
+  }, 'failed')(placement);
+
+  const storageGet = call((bridge, key) => {
+    if (!bridge || !bridge.storage || typeof bridge.storage.get !== 'function') return null;
+    return Promise.resolve(bridge.storage.get([key]))
+      .then((data) => data && data.length ? data[0] : null)
+      .catch(() => null);
+  }, null);
+
+  const storageSet = call((bridge, key, value) => {
+    if (!bridge || !bridge.storage || typeof bridge.storage.set !== 'function') return Promise.resolve();
+    const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+    return Promise.resolve(bridge.storage.set([key], [serialized])).catch(() => {});
+  }, undefined);
+
   return {
-    available: function () { return bridgePromise.then(function (b) { return !!b; }); },
-
-    gameReady: call(function (b) {
-      if (b) { try { b.platform.sendMessage('game_ready'); } catch (e) {} }
-    }),
-
-    loadingProgress: call(function (b, p) {
-      if (b && typeof b.setGameLoadingProgress === 'function') {
-        try { b.setGameLoadingProgress(p); } catch (e) {}
+    available: () => bridgePromise.then((bridge) => !!bridge),
+    isAvailable: () => bridgePromise.then((bridge) => !!bridge),
+    gameReady: call((bridge) => {
+      if (bridge && bridge.platform && typeof bridge.platform.sendMessage === 'function') {
+        bridge.platform.sendMessage('game_ready');
       }
-    }),
-
-    levelMessage: call(function (b, name) {
-      if (b) { try { b.platform.sendMessage(name); } catch (e) {} }
-    }),
-
-    interstitial: call(function (b) {
-      if (b && b.advertisement && b.advertisement.isInterstitialSupported) {
-        try { b.advertisement.showInterstitial(); } catch (e) {}
+    }, undefined),
+    loadingProgress: call((bridge, progress) => {
+      if (bridge && typeof bridge.setGameLoadingProgress === 'function') {
+        bridge.setGameLoadingProgress(Math.max(0, Math.min(1, Number(progress) || 0)));
       }
-    }),
-
-    /* Resolves true ONLY on rewarded state 'rewarded'. */
-    rewarded: call(function (b) {
-      if (!b || !b.advertisement || !b.advertisement.isRewardedSupported) return Promise.resolve(false);
-      return new Promise(function (resolve) {
-        let settled = false;
-        const done = function (ok) { if (!settled) { settled = true; resolve(ok); } };
-        const onState = function (state) {
-          if (state === 'rewarded') done(true);
-          else if (state === 'closed' || state === 'failed') done(false);
-        };
-        /* v2: subscribe on platform event bus, not on advertisement */
-        b.platform.on(b.EVENT_NAME.REWARDED_STATE_CHANGED, onState);
-        try { b.advertisement.showRewarded(); } catch (e) { done(false); }
-      });
-    }),
-
-    /* ---- gameplay lifecycle (v2: via platform.sendMessage) ---- */
-
-    onPause: call(function (b, cb) {
-      try { if (b) b.platform.on(b.EVENT_NAME.PAUSE_STATE_CHANGED, cb); } catch (e) {}
-    }),
-
-    onResume: call(function (b, cb) {
-      try { if (b) b.platform.on(b.EVENT_NAME.RESUME_STATE_CHANGED, cb); } catch (e) {}
-    }),
-
-    onAudio: call(function (b, cb) {
-      try { if (b) b.platform.on(b.EVENT_NAME.AUDIO_STATE_CHANGED, cb); } catch (e) {}
-    }),
-
-    /* Read the platform's current audio-enabled flag (null if unknown). */
-    audioEnabled: call(function (b) {
-      if (!b || !b.platform || typeof b.platform.isAudioEnabled === 'undefined') return null;
-      return b.platform.isAudioEnabled;
-    }),
-
-    /* Cloud storage (bridge.storage v2 — array API). Falls back cleanly. */
-    storageGet: call(function (b, key, fallback) {
-      if (!b || !b.storage || typeof b.storage.get !== 'function') return Promise.resolve(fallback);
-      return b.storage.get([key]).then(function (data) {
-        return (data && data.length > 0 && data[0] != null) ? data[0] : fallback;
-      }).catch(function () { return fallback; });
-    }),
-
-    storageSet: call(function (b, key, value) {
-      if (!b || !b.storage || typeof b.storage.set !== 'function') return Promise.resolve();
-      return b.storage.set([key], [value]).catch(function () { /* noop */ });
-    })
+    }, undefined),
+    levelMessage: call((bridge, name, data) => {
+      if (bridge && bridge.platform && typeof bridge.platform.sendMessage === 'function') {
+        bridge.platform.sendMessage(name, data);
+      }
+    }, undefined),
+    interstitialSupported: call((bridge) => !!(bridge && bridge.advertisement
+      && bridge.advertisement.isInterstitialSupported), false),
+    rewardedSupported: call((bridge) => !!(bridge && bridge.advertisement
+      && bridge.advertisement.isRewardedSupported), false),
+    showInterstitial: (placement) => showAd('Interstitial', placement),
+    showRewarded: (placement) => showAd('Rewarded', placement),
+    interstitial: (placement) => showAd('Interstitial', placement),
+    rewarded: (placement) => showAd('Rewarded', placement),
+    onPause: call((bridge, callback) => subscribe(bridge, 'PAUSE_STATE_CHANGED', callback), () => {}),
+    onResume: call((bridge, callback) => subscribe(bridge, 'RESUME_STATE_CHANGED', callback), () => {}),
+    onAudio: call((bridge, callback) => subscribe(bridge, 'AUDIO_STATE_CHANGED', callback), () => {}),
+    audioEnabled: call((bridge) => bridge && bridge.platform
+      && typeof bridge.platform.isAudioEnabled !== 'undefined'
+      ? bridge.platform.isAudioEnabled : null, null),
+    isAudioEnabled: call((bridge) => bridge && bridge.platform
+      && typeof bridge.platform.isAudioEnabled !== 'undefined'
+      ? bridge.platform.isAudioEnabled : null, null),
+    isPaused: call((bridge) => bridge && bridge.platform
+      && typeof bridge.platform.isPaused !== 'undefined'
+      ? bridge.platform.isPaused : null, null),
+    language: call((bridge) => bridge && bridge.platform && bridge.platform.language
+      ? bridge.platform.language : 'en', 'en'),
+    storageGet,
+    storageSet
   };
 })();

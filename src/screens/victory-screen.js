@@ -31,13 +31,15 @@ class VictoryScreen extends BaseScreen {
     this.el.appendChild(this.canvas);
 
     const panel = new Panel({ image: 'assets/ui/f.png' });
+    this.doubleButton = this.buttonEl('DOUBLE COINS', 'secondary', () => this.doubleCoins(coins));
+    this.doubleButton.el.hidden = true;
     panel.add(
       this.titleEl('VICTORY'),
       this.starsEl(stars),
       this.scoreEl(score),
       this.coinsEl(coins),
       this.buttonEl('NEXT LEVEL', 'primary', () => this.nextLevel()),
-      this.buttonEl('DOUBLE COINS', 'secondary', () => this.doubleCoins(coins))
+      this.doubleButton
     );
     this.el.appendChild(panel.el);
 
@@ -47,6 +49,11 @@ class VictoryScreen extends BaseScreen {
   }
 
   enter(previous, options) {
+    if (typeof SDK !== 'undefined' && SDK.rewardedSupported) {
+      SDK.rewardedSupported().then((supported) => {
+        if (this.doubleButton && this.el) this.doubleButton.el.hidden = !supported;
+      });
+    }
     this.resize();
     this.onResize = () => this.resize();
     window.addEventListener('resize', this.onResize);
@@ -174,9 +181,9 @@ class VictoryScreen extends BaseScreen {
     this.game.audio.click();
     if (typeof SDK === 'undefined') return;
     this.game.audio.pauseAll();
-    SDK.rewarded().then((ok) => {
+    SDK.showRewarded('double_coins').then((state) => {
       this.game.audio.resumeAll();
-      if (ok) {
+      if (state === 'rewarded') {
         this.game.storage.set('coins', this.game.storage.get('coins', 0) + coins);
         this.game.audio.play('coin');
       }

@@ -1022,10 +1022,15 @@ class GameplayScreen extends BaseScreen {
   pause() {
     if (!this.running) return;
     this.game.audio.click();
+    this.pauseFromPlatform();
+  }
+
+  pauseFromPlatform() {
+    if (!this.running) return;
     this.game.resumeRun = true;
     this.game.run = this.serializeRun();
     this.sdk('level_paused');
-    this.game.show('pause');
+    this.game.show('pause', { platform: true });
   }
 
   sdk(name) {

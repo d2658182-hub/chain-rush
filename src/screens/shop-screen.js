@@ -153,12 +153,20 @@ class ShopScreen extends BaseScreen {
     }
   }
 
+  enter() {
+    if (typeof SDK !== 'undefined' && SDK.rewardedSupported) {
+      SDK.rewardedSupported().then((supported) => {
+        if (this.el) this.el.querySelectorAll('.btn-ad').forEach((button) => { button.hidden = !supported; });
+      });
+    }
+  }
+
   watchAd(item) {
     if (typeof SDK === 'undefined') return;
     this.game.audio.pauseAll();
-    SDK.rewarded().then((ok) => {
+    SDK.showRewarded(`shop_${item.id}`).then((state) => {
       this.game.audio.resumeAll();
-      if (ok) this.grant(item);
+      if (state === 'rewarded') this.grant(item);
     });
   }
 }

@@ -15,12 +15,14 @@ class GameOverScreen extends BaseScreen {
     this.el.style.backgroundImage = `url("${this.game.config.backgrounds.menu}")`;
 
     const panel = new Panel({ image: 'assets/ui/f.png' });
+    this.continueButton = this.buttonEl('CONTINUE +15s', 'secondary', () => this.continueRun());
+    this.continueButton.el.hidden = true;
     panel.add(
       this.titleEl('GAME OVER'),
       this.scoreEl(score),
       this.bestEl(best),
       this.buttonEl('RETRY', 'primary', () => this.retry()),
-      this.buttonEl('CONTINUE +15s', 'secondary', () => this.continueRun()),
+      this.continueButton,
       this.buttonEl('MENU', 'back', () => this.menu())
     );
     this.el.appendChild(panel.el);
@@ -55,6 +57,14 @@ class GameOverScreen extends BaseScreen {
     return new Button({ label, variant, onClick });
   }
 
+  enter(previous, options = {}) {
+    if (!this.game.run) return;
+    if (typeof SDK === 'undefined' || !SDK.rewardedSupported) return;
+    SDK.rewardedSupported().then((supported) => {
+      if (this.continueButton && this.el) this.continueButton.el.hidden = !supported;
+    });
+  }
+
   retry() {
     this.game.audio.click();
     this.game.resumeRun = false;
@@ -65,9 +75,9 @@ class GameOverScreen extends BaseScreen {
     this.game.audio.click();
     if (typeof SDK === 'undefined') return;
     this.game.audio.pauseAll();
-    SDK.rewarded().then((ok) => {
+    SDK.showRewarded('continue').then((state) => {
       this.game.audio.resumeAll();
-      if (ok && this.game.run) {
+      if (state === 'rewarded' && this.game.run) {
         this.game.run.timeLeft = (this.game.run.timeLeft || 0) + 15;
         this.game.resumeRun = true;
         this.game.show(this.game.config.playTarget || 'gameplay');

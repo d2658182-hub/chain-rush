@@ -22,7 +22,7 @@ class Ads {
     const s = this.game.storage.get('streak', { count: 0 });
     if (s.count >= 2) {
       this.game.storage.set('streak', { outcome: s.outcome, count: 0 });
-      if (typeof SDK !== 'undefined') SDK.interstitial();
+      if (typeof SDK !== 'undefined') SDK.showInterstitial('run_transition');
     }
   }
 }
